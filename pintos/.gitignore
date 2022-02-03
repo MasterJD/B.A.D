@@ -5,3 +5,5 @@ tags
 *.a
 *.o
 .*.swp
+.container-id
+pintos-docker

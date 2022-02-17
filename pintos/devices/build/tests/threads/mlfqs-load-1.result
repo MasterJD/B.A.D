@@ -1,0 +1,11 @@
+FAIL
+Kernel panic in run: PANIC at ../../tests/threads/tests.c:93 in fail(): test failed
+Call stack: 0xc0029c82 0xc002c047 0xc002debc 0xc002bf6e 0xc00207a1 0xc0020880 0xc0020382
+Translation of call stack:
+0xc0029c82: debug_panic (.../../lib/kernel/debug.c:38)
+0xc002c047: pass (.../tests/threads/tests.c:99)
+0xc002debc: test_mlfqs_load_1 (...threads/mlfqs-load-1.c:41)
+0xc002bf6e: run_test (.../tests/threads/tests.c:57)
+0xc00207a1: run_task (.../../../threads/init.c:294)
+0xc0020880: run_actions (.../../../threads/init.c:344)
+0xc0020382: pintos_init (.../../../threads/init.c:134)

@@ -92,6 +92,19 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+   
+   /*aqui Daniel y alex */
+    int64_t wake_time; //how long the thread should sleep for until it is awoken
+    int64_t donated_priority; //variable seperate from the original priority of the thread that may be changed in order to speed up its execution time so its lock can be released to a waiting thread of higher (original) priority
+    bool has_donation; //tracks whether a thread has a donation for the purposes of deciding whether we should update donated priority in thread_set_priority function
+   /////////////
+
+    //pointer to lock being waited on for priority donate nest
+    struct lock *wait_on_lock;
+
+    //list of locks being held by the thread
+    struct list locks_held;
+   
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -137,5 +150,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+
+
 
 #endif /* threads/thread.h */

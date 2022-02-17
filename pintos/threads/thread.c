@@ -20,6 +20,9 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+//aqui codigo 
+#define DEPTH_LIMIT 8
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -70,6 +73,12 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+
+//updated to always compare threads' donated_priority
+static bool priority_compare(struct list_elem* a, struct list_elem* b, void* aux UNUSED) {
+  return list_entry(a, struct thread, elem)->donated_priority > list_entry(b, struct thread, elem)->donated_priority;
+}
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -146,7 +155,6 @@ thread_print_stats (void)
   printf ("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
           idle_ticks, kernel_ticks, user_ticks);
 }
-
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -162,6 +170,7 @@ thread_print_stats (void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
+  // aqui codigo sergio y javier
 tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
@@ -201,6 +210,11 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  //if new thread has higher priority than current thread then yield it
+  if (t->donated_priority > thread_current()->donated_priority) {
+  	thread_yield();
+  }
+
   return tid;
 }
 
@@ -228,6 +242,7 @@ thread_block (void)
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
+   // aqui sergio y javier
 void
 thread_unblock (struct thread *t) 
 {
@@ -243,6 +258,7 @@ thread_unblock (struct thread *t)
 }
 
 /* Returns the name of the running thread. */
+//aqui sergio y javier
 const char *
 thread_name (void) 
 {
@@ -252,6 +268,7 @@ thread_name (void)
 /* Returns the running thread.
    This is running_thread() plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
+   //aqui sergio y javier
 struct thread *
 thread_current (void) 
 {
@@ -298,6 +315,7 @@ thread_exit (void)
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
+   //aqui sergio y javier
 void
 thread_yield (void) 
 {
@@ -330,19 +348,40 @@ thread_foreach (thread_action_func *func, void *aux)
       func (t, aux);
     }
 }
-
+// aqui daniel y alex
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  //stores old donated_priority for later comparison
+  int oldPriority = thread_current()->donated_priority;
+
+  //only updates donated_priority if the new priority is greater or the thread has no donation
+  if (!thread_current()->has_donation ||
+      new_priority > thread_current()->donated_priority) {
+    thread_current()->donated_priority = new_priority;
+  }
+
+  //update thread priority
   thread_current ()->priority = new_priority;
+
+  //yield iff the thread has decreased in scheduling priority
+  if (oldPriority>thread_current()->donated_priority) {
+    thread_yield();
+  }
+
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
+//aqui daniel y alex
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_current ()->donated_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -448,6 +487,7 @@ is_thread (struct thread *t)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
+ // aqui sergio y javier  
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
@@ -463,6 +503,16 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->wake_time = -1; // menos 1
+
+  //initialize donated priority to regular priority
+  t->donated_priority = priority;
+  //initially thread has no donation
+  t->has_donation = false;
+  //initially thread is not waiting on any lock
+  t->wait_on_lock = NULL;
+
+  list_init(&t->locks_held);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -492,8 +542,11 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
+  else {
+    //ordene ready_list por prioridad, luego devuelva el mas alto priority thread
+  	list_sort(&ready_list, (list_less_func*)&priority_compare, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page

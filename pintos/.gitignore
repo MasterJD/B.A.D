@@ -7,3 +7,7 @@ tags
 .*.swp
 .container-id
 pintos-docker
+pintods-gdb
+Make.vars
+Pintos.pm
+pintos
